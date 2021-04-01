@@ -116,13 +116,7 @@ impl Minesweeper {
         }
 
         let selected_tile = if let Some(tile) = self.ui.hit_test(&point)? {
-            if self.mine_states[self.index_helper.compute_index(tile.x, tile.y)]
-                != MineState::Revealed
-            {
-                Some(tile)
-            } else {
-                None
-            }
+            Some(tile)
         } else {
             None
         };
@@ -172,7 +166,11 @@ impl Minesweeper {
                 ];
                 let flagged_neighbors = neighbors
                     .iter()
-                    .filter(|&(x, y)| self.index_helper.is_in_bounds(x, y)) && self.mine_states[self.index_helper.compute_index(x, y)] == MineState::Flag)
+                    .filter(|&&(x, y)| {
+                        self.index_helper.is_in_bounds(x, y)
+                            && self.mine_states[self.index_helper.compute_index(x, y)]
+                                == MineState::Flag
+                    })
                     .count() as i32;
                 if flagged_neighbors == self.get_surrounding_mine_count(current_x, current_y) {
                     for &(x, y) in neighbors.iter() {
@@ -182,6 +180,7 @@ impl Minesweeper {
                                 // I don't know if sweeping after revealing a mine will cause any bugs,
                                 // just break early.
                                 if self.sweep(x, y)? {
+                                    self.game_over(x, y)?;
                                     break;
                                 }
                             }
@@ -195,16 +194,7 @@ impl Minesweeper {
                     self.ui.update_tile_with_state(&current_selection, state)?;
                 } else if self.mine_states[index] == MineState::Empty {
                     if self.sweep(current_selection.x, current_selection.y)? {
-                        // We hit a mine! Setup and play an animation while locking any input.
-                        let hit_x = current_selection.x;
-                        let hit_y = current_selection.y;
-
-                        // First, hide the selection visual and reset the selection
-                        self.ui.select_tile(None)?;
-
-                        self.play_animation_on_all_mines(hit_x, hit_y)?;
-
-                        self.game_over = true;
+                        self.game_over(current_selection.x, current_selection.y)?;
                     } else if self.check_if_won() {
                         self.ui.select_tile(None)?;
                         // TODO: Play a win animation
@@ -213,6 +203,18 @@ impl Minesweeper {
                 }
             }
         }
+        Ok(())
+    }
+
+    fn game_over(&mut self, hit_x: i32, hit_y: i32) -> windows::Result<()> {
+        // We hit a mine! Setup and play an animation while locking any input.
+
+        // First, hide the selection visual and reset the selection
+        self.ui.select_tile(None)?;
+
+        self.play_animation_on_all_mines(hit_x, hit_y)?;
+
+        self.game_over = true;
         Ok(())
     }
 

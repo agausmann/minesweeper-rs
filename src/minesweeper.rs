@@ -157,7 +157,38 @@ impl Minesweeper {
                 .index_helper
                 .compute_index(current_selection.x, current_selection.y);
 
-            if self.mine_states[index] != MineState::Revealed {
+            if self.mine_states[index] == MineState::Revealed {
+                let current_x = current_selection.x;
+                let current_y = current_selection.y;
+                let neighbors = [
+                    (current_x + 1, current_y),
+                    (current_x + 1, current_y + 1),
+                    (current_x, current_y + 1),
+                    (current_x - 1, current_y + 1),
+                    (current_x - 1, current_y),
+                    (current_x - 1, current_y - 1),
+                    (current_x, current_y - 1),
+                    (current_x + 1, current_y - 1),
+                ];
+                let flagged_neighbors = neighbors
+                    .iter()
+                    .filter(|&(x, y)| self.index_helper.is_in_bounds(x, y)) && self.mine_states[self.index_helper.compute_index(x, y)] == MineState::Flag)
+                    .count() as i32;
+                if flagged_neighbors == self.get_surrounding_mine_count(current_x, current_y) {
+                    for &(x, y) in neighbors.iter() {
+                        if self.index_helper.is_in_bounds(x, y) {
+                            let index = self.index_helper.compute_index(x, y);
+                            if self.mine_states[index] == MineState::Empty {
+                                // I don't know if sweeping after revealing a mine will cause any bugs,
+                                // just break early.
+                                if self.sweep(x, y)? {
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                }
+            } else {
                 if is_right_button || is_eraser {
                     let state = self.mine_states[index].cycle();
                     self.mine_states[index] = state;
